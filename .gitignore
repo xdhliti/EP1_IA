@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+
+.vscode/
+.qodo/
+
+data.npz
+*.npy
+*.npz
+*.csv
+*.pdf
+*.txt
