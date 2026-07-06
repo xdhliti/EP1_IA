@@ -2,6 +2,8 @@
 
 Implementacoes em Python/NumPy para o EP1 de Inteligencia Artificial.
 
+Entrega principal: `random_forest_obliqua.py`
+
 ## Arquivos principais
 
 - `arvore_decisao_ortogonal.py`: arvore de decisao ortogonal do zero.
