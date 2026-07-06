@@ -8,14 +8,14 @@ import numpy as np
 
 
 @dataclass
-class Node:
+class No:
     prediction: int
     n_samples: int
     impurity: float
     w_star: Optional[np.ndarray] = None
     tau_star: Optional[float] = None
-    left: Optional["Node"] = None
-    right: Optional["Node"] = None
+    left: Optional["No"] = None
+    right: Optional["No"] = None
 
     @property
     def is_leaf(self) -> bool:
@@ -23,17 +23,6 @@ class Node:
 
 
 class ObliqueDecisionTree:
-    """
-    Arvore de decisao obliqua usada dentro da Oblique Random Forest.
-
-    Cada no aprende um hiperplano local:
-        z = X @ w
-        split: z <= tau
-
-    Importante para o EP: a projecao nao e calculada uma vez antes da arvore.
-    Cada no gera seus proprios candidatos w e escolhe seu proprio (w*, tau*).
-    """
-
     def __init__(
         self,
         max_depth: int = 10,
@@ -49,14 +38,14 @@ class ObliqueDecisionTree:
         self.n_projections = n_projections
         self.max_thresholds = max_thresholds
         self.rng = np.random.default_rng(random_state)
-        self.root: Optional[Node] = None
+        self.root: Optional[No] = None
         self.n_classes_: int = 0
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "ObliqueDecisionTree":
         X = np.asarray(X, dtype=float)
         y = np.asarray(y, dtype=int)
         self.n_classes_ = int(np.max(y)) + 1
-        self.root = self._grow(X, y, depth=0)
+        self.root = self._cresce_arvore(X, y, depth=0)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -64,9 +53,9 @@ class ObliqueDecisionTree:
             raise RuntimeError("A arvore precisa ser treinada antes de prever.")
 
         X = np.asarray(X, dtype=float)
-        return np.array([self._predict_one(row) for row in X], dtype=int)
+        return np.array([self._prediz_linha(row) for row in X], dtype=int)
 
-    def _predict_one(self, row: np.ndarray) -> int:
+    def _prediz_linha(self, row: np.ndarray) -> int:
         node = self.root
         while node is not None and not node.is_leaf:
             z = float(row @ node.w_star)
@@ -76,10 +65,10 @@ class ObliqueDecisionTree:
                 node = node.right
         return int(node.prediction)
 
-    def _grow(self, X: np.ndarray, y: np.ndarray, depth: int) -> Node:
-        prediction = majority_class(y)
+    def _cresce_arvore(self, X: np.ndarray, y: np.ndarray, depth: int) -> No:
+        prediction = classe_mais_frequente(y)
         impurity = gini(y, self.n_classes_)
-        node = Node(prediction=prediction, n_samples=len(y), impurity=impurity)
+        node = No(prediction=prediction, n_samples=len(y), impurity=impurity)
 
         if (
             depth >= self.max_depth
@@ -88,7 +77,7 @@ class ObliqueDecisionTree:
         ):
             return node
 
-        w_star, tau_star, gain = self._best_split(X, y, impurity)
+        w_star, tau_star, gain = self._melhor_corte(X, y, impurity)
         if w_star is None or gain <= 0.0:
             return node
 
@@ -104,11 +93,11 @@ class ObliqueDecisionTree:
 
         node.w_star = w_star
         node.tau_star = tau_star
-        node.left = self._grow(X[left_mask], y[left_mask], depth + 1)
-        node.right = self._grow(X[right_mask], y[right_mask], depth + 1)
+        node.left = self._cresce_arvore(X[left_mask], y[left_mask], depth + 1)
+        node.right = self._cresce_arvore(X[right_mask], y[right_mask], depth + 1)
         return node
 
-    def _best_split(
+    def _melhor_corte(
         self, X: np.ndarray, y: np.ndarray, parent_impurity: float
     ) -> tuple[Optional[np.ndarray], Optional[float], float]:
         best_w = None
@@ -116,9 +105,9 @@ class ObliqueDecisionTree:
         best_gain = 0.0
         n_samples, n_features = X.shape
 
-        for w in self._candidate_projections(X, y, n_features):
+        for w in self._direcoes_candidatas(X, y, n_features):
             z = X @ w
-            thresholds = candidate_thresholds(z, self.max_thresholds)
+            thresholds = limiares_candidatos(z, self.max_thresholds)
 
             for th in thresholds:
                 left_mask = z <= th
@@ -143,7 +132,7 @@ class ObliqueDecisionTree:
 
         return best_w, best_threshold, best_gain
 
-    def _candidate_projections(
+    def _direcoes_candidatas(
         self, X: np.ndarray, y: np.ndarray, n_features: int
     ) -> list[np.ndarray]:
         projections = [self._random_projection(n_features) for _ in range(self.n_projections)]
@@ -152,16 +141,14 @@ class ObliqueDecisionTree:
         class_means = {klass: X[y == klass].mean(axis=0) for klass in classes}
         global_mean = X.mean(axis=0)
 
-        # Direcoes one-vs-rest: media da classe contra media global do no.
         for klass in classes:
-            normalized = normalize(class_means[klass] - global_mean)
+            normalized = normaliza(class_means[klass] - global_mean)
             if normalized is not None:
                 projections.append(normalized)
 
-        # Direcoes par-a-par: aproximacao simples de uma ideia tipo LDA.
         for index, klass_a in enumerate(classes):
             for klass_b in classes[index + 1 :]:
-                normalized = normalize(class_means[klass_a] - class_means[klass_b])
+                normalized = normaliza(class_means[klass_a] - class_means[klass_b])
                 if normalized is not None:
                     projections.append(normalized)
 
@@ -169,7 +156,7 @@ class ObliqueDecisionTree:
 
     def _random_projection(self, n_features: int) -> np.ndarray:
         w = self.rng.normal(loc=0.0, scale=1.0, size=n_features)
-        normalized = normalize(w)
+        normalized = normaliza(w)
         if normalized is None:
             w = np.zeros(n_features)
             w[0] = 1.0
@@ -178,16 +165,6 @@ class ObliqueDecisionTree:
 
 
 class ObliqueRandomForest:
-    """
-    Oblique Random Forest implementada do zero com NumPy.
-
-    Estrategia:
-    1. Padroniza as features uma unica vez no fit.
-    2. Para cada arvore, sorteia uma amostra bootstrap.
-    3. Treina uma oDT nessa amostra.
-    4. Combina as predicoes das arvores por voto majoritario.
-    """
-
     def __init__(
         self,
         n_estimators: int = 10,
@@ -252,17 +229,17 @@ class ObliqueRandomForest:
         X = np.asarray(X, dtype=float)
         X_scaled = self._scale(X)
         all_predictions = np.array([tree.predict(X_scaled) for tree in self.trees])
-        return np.apply_along_axis(self._majority_vote, axis=0, arr=all_predictions)
+        return np.apply_along_axis(self._voto_majoritario, axis=0, arr=all_predictions)
 
     def _scale(self, X: np.ndarray) -> np.ndarray:
         return (X - self.feature_mean_) / self.feature_std_
 
-    def _majority_vote(self, predictions: np.ndarray) -> int:
+    def _voto_majoritario(self, predictions: np.ndarray) -> int:
         counts = np.bincount(predictions.astype(int), minlength=self.n_classes_)
         return int(np.argmax(counts))
 
 
-def candidate_thresholds(values: np.ndarray, max_thresholds: int) -> np.ndarray:
+def limiares_candidatos(values: np.ndarray, max_thresholds: int) -> np.ndarray:
     unique_values = np.unique(values)
     if len(unique_values) <= 1:
         return np.array([], dtype=float)
@@ -275,7 +252,7 @@ def candidate_thresholds(values: np.ndarray, max_thresholds: int) -> np.ndarray:
     return np.unique(midpoints[positions])
 
 
-def normalize(vector: np.ndarray) -> Optional[np.ndarray]:
+def normaliza(vector: np.ndarray) -> Optional[np.ndarray]:
     norm = np.linalg.norm(vector)
     if norm == 0.0:
         return None
@@ -290,7 +267,7 @@ def gini(y: np.ndarray, n_classes: int) -> float:
     return float(1.0 - np.sum(probabilities * probabilities))
 
 
-def majority_class(y: np.ndarray) -> int:
+def classe_mais_frequente(y: np.ndarray) -> int:
     counts = np.bincount(y)
     return int(np.argmax(counts))
 
@@ -325,11 +302,11 @@ def stratified_train_validation_split(
     )
 
 
-def accuracy_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def acuracia(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.mean(y_true == y_pred))
 
 
-def confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
+def matriz_confusao(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
     labels = np.unique(np.concatenate([y_true, y_pred]))
     size = int(np.max(labels)) + 1
     matrix = np.zeros((size, size), dtype=int)
@@ -384,12 +361,12 @@ def main() -> None:
     y_val_pred = model.predict(X_val)
     predict_time = perf_counter() - start
 
-    accuracy = accuracy_score(y_val, y_val_pred)
+    accuracy = acuracia(y_val, y_val_pred)
     print(f"Acuracia de validacao: {accuracy:.4f}")
     print(f"Tempo de treino: {fit_time:.3f} s")
     print(f"Tempo de predicao na validacao: {predict_time:.3f} s")
     print("Matriz de confusao (linhas=real, colunas=previsto):")
-    print(confusion_matrix(y_val, y_val_pred))
+    print(matriz_confusao(y_val, y_val_pred))
 
     final_model = ObliqueRandomForest(
         n_estimators=10,
