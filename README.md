@@ -8,7 +8,6 @@ Implementacoes em Python/NumPy para o EP1 de Inteligencia Artificial.
 - `random_forest_ortogonal.py`: random forest ortogonal do zero.
 - `arvore_decisao_obliqua.py`: arvore de decisao obliqua com hiperplanos locais.
 - `random_forest_obliqua.py`: oblique random forest com bootstrap e voto majoritario.
-- `adaboost_arvore_obliqua.py`: AdaBoost multiclasse SAMME usando arvores obliquas ponderadas.
 
 ## Dados
 
@@ -27,17 +26,16 @@ python arvore_decisao_ortogonal.py
 python random_forest_ortogonal.py
 python arvore_decisao_obliqua.py
 python random_forest_obliqua.py
-python adaboost_arvore_obliqua.py
 ```
 
 Cada script imprime acuracia de validacao, tempo de treino, tempo de predicao e matriz de confusao.
 
 ## Melhor resultado local ate agora
 
-O melhor resultado de validacao observado foi com `adaboost_arvore_obliqua.py`:
+O resultado de validacao observado com oRF foi `random_forest_obliqua.py`:
 
 ```text
-Acuracia de validacao: 0.7619
+Acuracia de validacao: 0.7319
 ```
 
 Essa configuracao prioriza acuracia, com custo de treino mais alto.
