@@ -32,7 +32,7 @@ python random_forest_obliqua.py
 
 Cada script imprime acuracia de validacao, tempo de treino, tempo de predicao e matriz de confusao.
 
-## Melhor resultado local ate agora
+## Resultado local encontrado
 
 O resultado de validacao observado com oRF foi `random_forest_obliqua.py`:
 
